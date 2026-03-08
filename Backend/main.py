@@ -50,7 +50,7 @@ app = FastAPI(
 # ── CORS ──────────────────────────────────────────────────────────────────────
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=settings.allowed_origins_list,
+    allow_origins=["https://kisan-saathi-mu.vercel.app", "https://kisan-sathi.vercel.app", "https://kisan-sathi.onrender.com"].extend(settings.allowed_origins_list),
     allow_credentials=True,
     allow_methods=["*"],
     allow_headers=["*"],

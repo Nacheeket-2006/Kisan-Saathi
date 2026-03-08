@@ -5,6 +5,7 @@ import { fetchMandiPrices } from '../api/mandi'
 import { sendChatMessage } from '../api/chat'
 import { fetchTransportListings, createTransportListing } from '../api/transport'
 import { fetchCommunityFeed, likePost, createCommunityPost } from '../api/community'
+import { diagnosePlant, fetchDiagnosisHistory } from '../api/diagnosis'
 import s from './FarmerDashboard.module.css'
 
 /* ─── Static Fallback Data ────────────────────────────────────── */
@@ -245,6 +246,145 @@ function CommunityTab({ t, userId }) {
             <div className={s.divider} />
             {[['🧅', 'Onion Prices Surge', '342 farmers discussing'], ['🌧️', 'IMD Rain Forecast', '218 farmers discussing'], ['💰', 'PM Kisan 19th Installment', '891 farmers discussing'], ['🌾', 'MSP for Wheat 2026', '456 farmers discussing']].map(([ic, ti, me]) => (
               <div key={ti} className={s.trendItem}><span className={s.trendIcon}>{ic}</span><div><div className={s.trendTitle}>{ti}</div><div className={s.trendMeta}>{me}</div></div></div>
+            ))}
+          </div>
+        </div>
+      </div>
+    </div>
+  )
+}
+
+/* ── Disease Diagnosis Tab ── */
+function DiagnosisTab({ t }) {
+  const [file, setFile] = React.useState(null)
+  const [preview, setPreview] = React.useState(null)
+  const [result, setResult] = React.useState(null)
+  const [loading, setLoading] = React.useState(false)
+  const [error, setError] = React.useState('')
+  const [history, setHistory] = React.useState([])
+  const fileRef = React.useRef(null)
+
+  React.useEffect(() => {
+    fetchDiagnosisHistory().then(setHistory).catch(() => { })
+  }, [])
+
+  const handleFileChange = (e) => {
+    const f = e.target.files[0]
+    if (!f) return
+    setFile(f)
+    setResult(null)
+    setError('')
+    const reader = new FileReader()
+    reader.onload = (ev) => setPreview(ev.target.result)
+    reader.readAsDataURL(f)
+  }
+
+  const handleDiagnose = async () => {
+    if (!file) { setError('Please select a plant image first.'); return }
+    setLoading(true)
+    setError('')
+    setResult(null)
+    try {
+      const data = await diagnosePlant(file)
+      setResult(data)
+      fetchDiagnosisHistory().then(setHistory).catch(() => { })
+    } catch (e) {
+      setError('Diagnosis failed. Please ensure you are logged in and try again.')
+    } finally {
+      setLoading(false)
+    }
+  }
+
+  const severityColor = { none: '#4a7c2f', low: '#f0a500', medium: '#e06c00', high: '#c0392b' }
+  const severityLabel = { none: '✅ Healthy', low: '⚠️ Low', medium: '🟠 Medium', high: '🔴 High' }
+
+  return (
+    <div>
+      <h2 className={s.secTitle}>🔬 Disease Diagnosis</h2>
+      <p className={s.secSub}>Upload a photo of your crop leaf or plant — AI will identify the disease instantly</p>
+      <div className={s.tpLayout}>
+        <div>
+          <div className={s.card}>
+            <div className={s.cardTitle}>📸 Upload Plant Photo</div>
+            <div style={{ marginTop: 12, marginBottom: 12 }}>
+              <div
+                onClick={() => fileRef.current?.click()}
+                style={{
+                  border: '2px dashed #b8d4a0', borderRadius: 12, padding: '2rem',
+                  textAlign: 'center', cursor: 'pointer', background: '#f9fbf7',
+                  color: '#4a7c2f', fontSize: '.9rem', marginBottom: 10
+                }}
+              >
+                {preview
+                  ? <img src={preview} alt="preview" style={{ maxHeight: 200, borderRadius: 8, maxWidth: '100%' }} />
+                  : <div>🌿<br /><strong>Click to upload</strong><br /><span style={{ fontSize: '.78rem', color: '#888' }}>JPEG, PNG, or WebP</span></div>
+                }
+              </div>
+              <input ref={fileRef} type="file" accept="image/jpeg,image/png,image/webp"
+                style={{ display: 'none' }} onChange={handleFileChange} />
+            </div>
+            <button className={s.btnPrimary} onClick={handleDiagnose} disabled={loading || !file}
+              style={{ width: '100%' }}>
+              {loading ? '🔍 Analysing with AI…' : '🔬 Diagnose Plant'}
+            </button>
+            {error && <div style={{ color: '#c0392b', fontSize: '.85rem', marginTop: 8 }}>{error}</div>}
+          </div>
+
+          {result && (
+            <div className={s.card} style={{ marginTop: 16, borderLeft: `4px solid ${severityColor[result.severity] || '#888'}` }}>
+              <div className={s.cardTitle}>🧪 Diagnosis Result</div>
+              <div style={{ margin: '12px 0' }}>
+                <div style={{ fontSize: '1.1rem', fontWeight: 700, color: '#2d5016', marginBottom: 4 }}>
+                  {result.disease_name}
+                </div>
+                <div style={{ display: 'flex', gap: 12, marginBottom: 8, flexWrap: 'wrap' }}>
+                  <span style={{ background: '#e8f5e9', padding: '2px 10px', borderRadius: 12, fontSize: '.82rem' }}>
+                    Confidence: {Math.round(result.confidence * 100)}%
+                  </span>
+                  <span style={{ background: '#fff3e0', padding: '2px 10px', borderRadius: 12, fontSize: '.82rem', color: severityColor[result.severity] }}>
+                    Severity: {severityLabel[result.severity] || result.severity}
+                  </span>
+                </div>
+                <div style={{ fontWeight: 600, fontSize: '.88rem', marginBottom: 6, color: '#555' }}>✅ Recommendations:</div>
+                <ul style={{ margin: 0, paddingLeft: 18 }}>
+                  {(result.recommendations || []).map((r, i) => (
+                    <li key={i} style={{ fontSize: '.85rem', color: '#444', marginBottom: 4 }}>{r}</li>
+                  ))}
+                </ul>
+              </div>
+            </div>
+          )}
+        </div>
+
+        <div>
+          <div className={s.card}>
+            <div className={s.cardTitle}>🕐 Past Diagnoses</div>
+            <div className={s.divider} />
+            {history.length === 0
+              ? <div style={{ color: '#aaa', fontSize: '.85rem', padding: '1rem 0' }}>No past diagnoses yet.</div>
+              : history.slice(0, 5).map((h, i) => (
+                <div key={i} style={{ padding: '8px 0', borderBottom: '1px solid #f0ebe0', display: 'flex', gap: 10, alignItems: 'center' }}>
+                  {h.image_url && <img src={h.image_url} alt="" style={{ width: 44, height: 44, objectFit: 'cover', borderRadius: 6 }} />}
+                  <div>
+                    <div style={{ fontWeight: 600, fontSize: '.85rem' }}>{h.disease_name}</div>
+                    <div style={{ fontSize: '.75rem', color: '#888' }}>
+                      {Math.round(h.confidence * 100)}% · {new Date(h.created_at).toLocaleDateString()}
+                    </div>
+                  </div>
+                  <span style={{ marginLeft: 'auto', fontSize: '.75rem', color: severityColor[h.severity] }}>
+                    {severityLabel[h.severity]}
+                  </span>
+                </div>
+              ))
+            }
+          </div>
+          <div className={s.card} style={{ marginTop: 12 }}>
+            <div className={s.cardTitle}>💡 Tips for Best Results</div>
+            <div className={s.divider} />
+            {[['📸', 'Take photo in natural daylight'], ['🔍', 'Focus on affected leaves or stems'], ['🌿', 'Include both healthy & sick parts'], ['📱', 'Keep camera steady, avoid blur']].map(([ic, tip]) => (
+              <div key={tip} style={{ display: 'flex', gap: 8, padding: '6px 0', fontSize: '.83rem', color: '#555' }}>
+                <span>{ic}</span><span>{tip}</span>
+              </div>
             ))}
           </div>
         </div>
@@ -528,6 +668,7 @@ export default function FarmerDashboard() {
   const tabs = [
     { id: 'crops', icon: '🌾', key: 'tab_crops' },
     { id: 'community', icon: '👨‍👩‍👧', key: 'tab_community' },
+    { id: 'diagnosis', icon: '🔬', key: 'tab_diagnosis' },
     { id: 'mandi', icon: '📊', key: 'tab_mandi' },
     { id: 'transport', icon: '🚛', key: 'tab_transport' },
     { id: 'chatbot', icon: '🤖', key: 'tab_chatbot' },
@@ -578,6 +719,7 @@ export default function FarmerDashboard() {
       <main className={s.main}>
         {tab === 'crops' && <CropsTab t={t} />}
         {tab === 'community' && <CommunityTab t={t} userId={user?.id} />}
+        {tab === 'diagnosis' && <DiagnosisTab t={t} />}
         {tab === 'mandi' && <MandiTab t={t} />}
         {tab === 'transport' && <TransportTab t={t} />}
         {tab === 'chatbot' && <ChatbotTab t={t} userName={firstName} />}

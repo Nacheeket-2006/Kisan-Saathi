@@ -25,10 +25,7 @@ actionable advice, not technical jargon."""
 
 def _get_model():
     genai.configure(api_key=settings.gemini_api_key)
-    return genai.GenerativeModel(
-        model_name="gemini-1.5-flash",
-        system_instruction=SYSTEM_PROMPT,
-    )
+    return genai.GenerativeModel(model_name="gemini-2.0-flash")
 
 
 async def send_message(user_message: str, session_id: str | None, user_id: str) -> ChatResponse:
@@ -43,17 +40,19 @@ async def send_message(user_message: str, session_id: str | None, user_id: str) 
 
     history: list[dict] = session["messages"] if session else []
 
-    # Build Gemini history format
-    gemini_history = [
-        {"role": msg["role"], "parts": [msg["content"]]}
-        for msg in history
-    ]
+    # Build prompt with system context + conversation history
+    prompt_parts = [SYSTEM_PROMPT, "\n\n"]
+    for msg in history[-10:]:  # last 5 exchanges to avoid token overflow
+        role_label = "Farmer" if msg["role"] == "user" else "Kisan Mitra"
+        prompt_parts.append(f"{role_label}: {msg['content']}\n")
+    prompt_parts.append(f"Farmer: {user_message}\nKisan Mitra:")
+
+    full_prompt = "".join(prompt_parts)
 
     # Call Gemini
     model = _get_model()
-    chat = model.start_chat(history=gemini_history)
-    response = chat.send_message(user_message)
-    reply_text = response.text
+    response = model.generate_content(full_prompt)
+    reply_text = response.text.strip()
 
     # Append new messages to history
     history.append({"role": "user", "content": user_message, "timestamp": now})

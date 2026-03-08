@@ -25,7 +25,7 @@ actionable advice, not technical jargon."""
 
 def _get_model():
     genai.configure(api_key=settings.gemini_api_key)
-    return genai.GenerativeModel(model_name="gemini-2.0-flash")
+    return genai.GenerativeModel(model_name="gemini-2.5-flash-lite")
 
 
 async def send_message(user_message: str, session_id: str | None, user_id: str) -> ChatResponse:

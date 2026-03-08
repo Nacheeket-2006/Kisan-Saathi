@@ -3,6 +3,10 @@
 A production-minded, rural-first agricultural platform for Indian farmers.
 Built for low-bandwidth, multilingual, mobile use with practical AI integration.
 
+**🌐 Live Demos:**
+- **Frontend App:** [https://kisan-saathi-mu.vercel.app](https://kisan-saathi-mu.vercel.app)
+- **Backend API (Swagger Docs):** [https://kisan-saathi-evak.onrender.com/docs](https://kisan-saathi-evak.onrender.com/docs)
+
 > **🌟 Core Highlight**: As part of this comprehensive platform, **we have created our own custom AI models** specifically for localized agricultural needs. Our custom machine learning pipeline powers the **Plant Disease Detection** (analyzing crop photos) and **Market Price Prediction** algorithms to give farmers highly accurate, actionable insights.
 
 ---

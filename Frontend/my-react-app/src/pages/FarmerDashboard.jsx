@@ -4,7 +4,7 @@ import { useLang, useAuth } from '../context/AppContext'
 import { fetchMandiPrices } from '../api/mandi'
 import { sendChatMessage } from '../api/chat'
 import { fetchTransportListings, createTransportListing } from '../api/transport'
-import { fetchCommunityFeed, likePost } from '../api/community'
+import { fetchCommunityFeed, likePost, createCommunityPost } from '../api/community'
 import s from './FarmerDashboard.module.css'
 
 /* ─── Static Fallback Data ────────────────────────────────────── */
@@ -135,14 +135,20 @@ function CommunityTab({ t, userId }) {
   const [posts, setPosts] = useState([])
   const [loading, setLoading] = useState(true)
   const [question, setQuestion] = useState('')
+  const [photoFile, setPhotoFile] = useState(null)
+  const [posting, setPosting] = useState(false)
+  const [postMsg, setPostMsg] = useState('')
   const [likedIds, setLikedIds] = useState(new Set())
+  const fileRef = React.useRef(null)
 
-  useEffect(() => {
+  const loadFeed = () => {
     fetchCommunityFeed()
       .then(setPosts)
-      .catch(() => {/* fallback: show nothing or static */ })
+      .catch(() => { })
       .finally(() => setLoading(false))
-  }, [])
+  }
+
+  useEffect(() => { loadFeed() }, [])
 
   const handleLike = async (postId) => {
     try {
@@ -158,6 +164,23 @@ function CommunityTab({ t, userId }) {
           : p
       ))
     } catch (e) { /* silent */ }
+  }
+
+  const handlePost = async () => {
+    if (!question.trim()) { setPostMsg('⚠️ Please write something first.'); return }
+    setPosting(true)
+    setPostMsg('')
+    try {
+      await createCommunityPost(question.trim(), [], photoFile || undefined)
+      setQuestion('')
+      setPhotoFile(null)
+      setPostMsg('✅ Post shared!')
+      loadFeed()
+    } catch (e) {
+      setPostMsg('❌ Failed to post. Please login and try again.')
+    } finally {
+      setPosting(false)
+    }
   }
 
   // Static fallback posts shown when backend is empty or loading
@@ -203,10 +226,17 @@ function CommunityTab({ t, userId }) {
           <div className={s.card} style={{ marginTop: 16 }}>
             <div className={s.cardTitle}>🙋 Ask a Question</div>
             <textarea className={s.askArea} placeholder="Type your farming question here..." value={question} onChange={e => setQuestion(e.target.value)} />
-            <div style={{ display: 'flex', gap: 10, marginTop: 8 }}>
-              <button className={s.btnPrimary}>Post Question</button>
-              <button className={s.btnSec}>Add Photo 📷</button>
+            <div style={{ display: 'flex', gap: 10, marginTop: 8, alignItems: 'center', flexWrap: 'wrap' }}>
+              <button className={s.btnPrimary} onClick={handlePost} disabled={posting}>
+                {posting ? '⏳ Posting…' : 'Post Question'}
+              </button>
+              <button className={s.btnSec} onClick={() => fileRef.current?.click()}>
+                {photoFile ? `📷 ${photoFile.name.slice(0, 20)}…` : 'Add Photo 📷 (optional)'}
+              </button>
+              <input ref={fileRef} type="file" accept="image/jpeg,image/png,image/webp" style={{ display: 'none' }}
+                onChange={e => setPhotoFile(e.target.files[0] || null)} />
             </div>
+            {postMsg && <div style={{ marginTop: 8, fontSize: '.85rem', color: postMsg.startsWith('✅') ? 'var(--green-mid)' : 'var(--text-muted)' }}>{postMsg}</div>}
           </div>
         </div>
         <div>
